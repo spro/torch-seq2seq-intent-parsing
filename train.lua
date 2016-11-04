@@ -12,7 +12,7 @@ cmd:option('-glove_size', 100, 'Glove embedding size')
 cmd:option('-dropout', 0.1, 'Dropout')
 cmd:option('-learning_rate', 0.001, 'Learning rate')
 cmd:option('-learning_rate_decay', 1e-5, 'Learning rate decay')
-cmd:option('-max_length', 15, 'Maximum output length')
+cmd:option('-max_length', 20, 'Maximum output length')
 cmd:option('-n_epochs', 100000, 'Number of epochs to train')
 cmd:option('-win', 'losses', 'Name of display window')
 
