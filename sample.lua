@@ -60,12 +60,12 @@ function sample(input_string)
     local sampled_tokens = {}
 
     for t = 1, opt.max_length do
-        command_decoder_in_outputs[t] = models.command_decoder_in:forward(
-            command_decoder_inputs[t])
-        command_decoder_hidden_outputs[t], _ = unpack(models.command_decoder_hidden:forward(
-            {command_decoder_in_outputs[t], command_decoder_hidden_outputs[t-1], encoder_outputs_padded}))
-        command_decoder_out_outputs[t] = models.command_decoder_out:forward(
-            command_decoder_hidden_outputs[t])
+        local command_decoder_output = models.command_decoder:forward(
+            {command_decoder_inputs[t], command_decoder_hidden_outputs[t-1], encoder_outputs_padded})
+        command_decoder_out_outputs[t] = command_decoder_output[1]
+        command_decoder_hidden_outputs[t] = command_decoder_output[2][1]
+
+        -- Choose most likely output
         out_max, out_max_index = command_decoder_out_outputs[t]:max(1)
         if out_max_index[1] == command_EOS then
             break
@@ -74,6 +74,8 @@ function sample(input_string)
         table.insert(sampled_tokens, output_argument_name)
         sampled = sampled .. output_argument_name
         if t < opt.max_length then sampled = sampled .. ' ' end
+
+        -- Next decoder input is current output
         command_decoder_inputs[t + 1] = out_max_index
     end
 
