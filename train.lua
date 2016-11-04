@@ -8,9 +8,10 @@ display = require 'display'
 cmd = torch.CmdLine()
 cmd:text()
 cmd:option('-hidden_size', 100, 'Hidden size of LSTM layer')
+cmd:option('-glove_size', 100, 'Glove embedding size')
 cmd:option('-dropout', 0.1, 'Dropout')
 cmd:option('-learning_rate', 0.001, 'Learning rate')
-cmd:option('-learning_rate_decay', 1e-4, 'Learning rate decay')
+cmd:option('-learning_rate_decay', 1e-5, 'Learning rate decay')
 cmd:option('-max_length', 15, 'Maximum output length')
 cmd:option('-n_epochs', 100000, 'Number of epochs to train')
 cmd:option('-win', 'losses', 'Name of display window')
@@ -72,6 +73,7 @@ function sample()
         command_decoder_out_outputs[t] = command_decoder_output[1]
         command_decoder_hidden_outputs[t] = command_decoder_output[2][1]
 
+        -- Choose most likely output
         out_max, out_max_index = command_decoder_out_outputs[t]:max(1)
         if out_max_index[1] == command_EOS then
             break
@@ -79,6 +81,8 @@ function sample()
         local output_argument_name = argument_index_to_value[out_max_index[1]]
         table.insert(sampled_tokens, output_argument_name)
         sampled = sampled .. ' ' .. output_argument_name
+
+        -- Next decoder input is current output
         command_decoder_inputs[t + 1] = out_max_index
     end
 

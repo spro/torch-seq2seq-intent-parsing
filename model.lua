@@ -79,7 +79,7 @@ end
 -- Outputs:
 -- * Sequence of hidden states
 
-encoder_glove = nn.Linear(opt.hidden_size, opt.hidden_size)()
+encoder_glove = nn.Linear(opt.glove_size, opt.hidden_size)()
 encoder_lookup = nn.LookupTable(n_input_words + 1, opt.hidden_size)()
 encoder_lookup_flat = nn.View(-1)(encoder_lookup)
 -- Combine glove and lookup
@@ -119,10 +119,6 @@ command_decoder_out = command_decoder_out(command_decoder_out_inputs)
 command_decoder_outputs = {command_decoder_out, command_decoder_hidden}
 
 command_decoder = nn.gModule(command_decoder_inputs, command_decoder_outputs)
-
-fake_encoded = {}
-for i = 1, opt.max_length do fake_encoded[i] = torch.zeros(opt.hidden_size) end
-command_decoder:forward({torch.LongTensor({1}), torch.zeros(opt.hidden_size), fake_encoded})
 
 -- Flattened parameters, clones per time step
 -- =============================================================================
