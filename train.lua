@@ -67,14 +67,10 @@ function sample()
     local sampled_tokens = {}
 
     for t = 1, opt.max_length do
-        command_decoder_in_outputs[t] = clones.command_decoder_in[t]:forward(
-            command_decoder_inputs[t])
-        local command_decoder_hidden_output = clones.command_decoder_hidden[t]:forward(
-            {command_decoder_in_outputs[t], command_decoder_hidden_outputs[t-1], encoder_outputs_padded})
-        command_decoder_hidden_outputs[t] = command_decoder_hidden_output[1]
-        local command_decoder_hidden_attention = command_decoder_hidden_output[2]
-        command_decoder_out_outputs[t] = clones.command_decoder_out[t]:forward(
-            command_decoder_hidden_outputs[t])
+        local command_decoder_output = clones.command_decoder[t]:forward(
+            {command_decoder_inputs[t], command_decoder_hidden_outputs[t-1], encoder_outputs_padded})
+        command_decoder_out_outputs[t] = command_decoder_output[1]
+        command_decoder_hidden_outputs[t] = command_decoder_output[2][1]
 
         out_max, out_max_index = command_decoder_out_outputs[t]:max(1)
         if out_max_index[1] == command_EOS then
@@ -89,40 +85,6 @@ function sample()
     local last_command_decoder_output = command_decoder_hidden_outputs[#command_decoder_inputs-1]
 
     print('sampled', sampled)
-
-    -- return nil
-
-	-- -- For each argument pair
-
-    -- local sampled_arguments = filter(sampled_tokens, isArgument)
-    -- local argument_decoder_inputs = map(sampled_arguments, function(argument_name)
-    --     return torch.LongTensor({argument_name_to_index[argument_name]})
-    -- end)
-
-    -- local argument_decoder_hidden_outputs = {[0] = last_command_decoder_output}
-
-    -- for t = 1, #argument_decoder_inputs do
-
-    --     -- Forward through argument decoder
-
-    --     argument_decoder_in_output = clones.argument_decoder_in[t]:forward(
-    --         argument_decoder_inputs[t])
-    --     argument_decoder_hidden_outputs[t], _ = unpack(clones.argument_decoder_hidden[t]:forward(
-    --         {argument_decoder_in_output, torch.zeros(opt.hidden_size), encoder_outputs_padded}))
-    --     argument_decoder_out_output = clones.argument_decoder_out[t]:forward(
-    --         argument_decoder_hidden_outputs[t])
-    --     out_max, out_max_index = argument_decoder_out_output:max(1)
-    --     local output_argument_value
-    --     if out_max_index[1] <= n_argument_values then
-    --         output_argument_value = argument_index_to_value[out_max_index[1]]
-    --     else
-    --         output_argument_value = 'UNK'
-    --     end
-    --     print(string.format("%s = %s", sampled_arguments[t], output_argument_value))
-    --     -- sampled = sampled .. ' ' .. output_argument_name
-    --     -- command_decoder_inputs[t + 1] = out_max_index
-    -- end
-
 end
 
 sample()
@@ -163,69 +125,18 @@ function feval(params_)
     local command_decoder_out_outputs = {}
 
     for t = 1, #command_decoder_inputs do
-        command_decoder_in_outputs[t] = clones.command_decoder_in[t]:forward(
-            command_decoder_inputs[t])
-        command_decoder_hidden_outputs[t], _ = unpack(clones.command_decoder_hidden[t]:forward(
-            {command_decoder_in_outputs[t], command_decoder_hidden_outputs[t-1], encoder_outputs_padded}))
-        command_decoder_out_outputs[t] = clones.command_decoder_out[t]:forward(
-            command_decoder_hidden_outputs[t])
+        local command_decoder_output = clones.command_decoder[t]:forward(
+            {command_decoder_inputs[t], command_decoder_hidden_outputs[t-1], encoder_outputs_padded})
+        command_decoder_out_outputs[t] = command_decoder_output[1]
+        command_decoder_hidden_outputs[t] = command_decoder_output[2][1]
         loss = loss + clones.command_decoder_criterion[t]:forward(command_decoder_out_outputs[t], command_decoder_targets[t])
     end
 
     local last_command_decoder_output = command_decoder_hidden_outputs[#command_decoder_inputs]
 
-	-- -- For each argument pair
-
-    -- local argument_decoder_in_outputs = {}
-    -- local argument_decoder_hidden_outputs = {[0] = last_command_decoder_output}
-    -- local argument_decoder_out_outputs = {}
-
-    -- -- Forward through argument decoder
-    -- for t = 1, #argument_decoder_inputs do
-
-        -- argument_decoder_in_outputs[t] = clones.argument_decoder_in[t]:forward(
-            -- argument_decoder_inputs[t])
-        -- argument_decoder_hidden_outputs[t], _ = unpack(clones.argument_decoder_hidden[t]:forward(
-            -- {argument_decoder_in_outputs[t], torch.zeros(opt.hidden_size), encoder_outputs_padded}))
-        -- argument_decoder_out_outputs[t] = clones.argument_decoder_out[t]:forward(
-            -- argument_decoder_hidden_outputs[t])
-
-        -- loss = loss + clones.argument_decoder_criterion[t]:forward(
-            -- argument_decoder_out_outputs[t], argument_decoder_targets[t])
-    -- end
-
-    -- local d_argument_decoder_hidden = {[#argument_decoder_inputs] = torch.zeros(opt.hidden_size)}
-
-    -- -- Backward through argument decoder
-    -- for t = #argument_decoder_inputs, 1, -1 do
-
-        -- -- decoder out < targets
-        -- d_argument_decoder_out = clones.argument_decoder_criterion[t]:backward(
-            -- argument_decoder_out_outputs[t], argument_decoder_targets[t])
-        -- -- decoder hidden < decoder out
-        -- d_argument_decoder_hidden[t]:add(clones.argument_decoder_out[t]:backward(
-            -- argument_decoder_hidden_outputs[t], d_argument_decoder_out))
-        -- -- decoder in < decoder hidden
-        -- d_argument_decoder_in, d_argument_decoder_hidden[t-1], _ = unpack(clones.argument_decoder_hidden[t]:backward(
-            -- {argument_decoder_in_outputs[t], torch.zeros(opt.hidden_size), encoder_outputs_padded},
-            -- {d_argument_decoder_hidden[t], torch.zeros(opt.max_length)}
-        -- ))
-        -- -- < decoder in
-        -- clones.argument_decoder_in[t]:backward(
-            -- argument_decoder_inputs[t], d_argument_decoder_in)
-    -- end
-
-    -- -- print('d argument decoder hidden', d_argument_decoder_hidden)
-
-    -- local sum_d_argument_decoder_hidden = torch.zeros(opt.hidden_size)
-    -- for t = 0, #argument_decoder_inputs do
-        -- sum_d_argument_decoder_hidden:add(d_argument_decoder_hidden[t])
-    -- end
-
 	-- Backward through command decoder
 
     local d_command_decoder_out = {}
-    -- local d_command_decoder_hidden = {[#command_decoder_inputs] = sum_d_argument_decoder_hidden}
     local d_command_decoder_hidden = {[#command_decoder_inputs] = torch.zeros(opt.hidden_size)}
     local d_command_decoder_in = {}
 
@@ -233,17 +144,12 @@ function feval(params_)
         -- decoder out < targets
         d_command_decoder_out[t] = clones.command_decoder_criterion[t]:backward(
             command_decoder_out_outputs[t], command_decoder_targets[t])
-        -- decoder hidden < decoder out
-        d_command_decoder_hidden[t]:add(clones.command_decoder_out[t]:backward(
-            command_decoder_hidden_outputs[t], d_command_decoder_out[t]))
-        -- decoder in < decoder hidden
-        d_command_decoder_in[t], d_command_decoder_hidden[t-1], _ = unpack(clones.command_decoder_hidden[t]:backward(
-            {command_decoder_in_outputs[t], command_decoder_hidden_outputs[t-1], encoder_outputs_padded},
-            {d_command_decoder_hidden[t], torch.zeros(opt.max_length)}
+
+        -- -- < decoder
+        d_command_decoder_in[t], d_command_decoder_hidden[t-1], _ = unpack(clones.command_decoder[t]:backward(
+            {command_decoder_inputs[t], command_decoder_hidden_outputs[t-1], encoder_outputs_padded},
+            {d_command_decoder_out[t], {d_command_decoder_hidden[t], torch.zeros(opt.max_length)}}
         ))
-        -- < decoder in
-        clones.command_decoder_in[t]:backward(
-            command_decoder_inputs[t], d_command_decoder_in[t])
     end
 
     -- Backward through encoder

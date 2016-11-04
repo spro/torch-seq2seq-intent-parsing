@@ -106,84 +106,39 @@ encoder = nn.gModule(encoder_inputs, encoder_outputs)
 -- Outputs:
 -- * Sequence of {command_name, argument_name, ...}
 
-command_decoder_in = nn.LookupTable(n_argument_values + 1, opt.hidden_size)
-command_decoder_hidden = AttentionGRU(opt.hidden_size, opt.hidden_size, opt.max_length)
+command_decoder_in = nn.LookupTable(n_argument_values + 1, opt.hidden_size)()
+command_decoder_hidden_prev = nn.Identity()()
+command_decoder_hidden_encoded = nn.Identity()()
+command_decoder_inputs = {command_decoder_in, command_decoder_hidden_prev, command_decoder_hidden_encoded}
+command_decoder_hidden = AttentionGRU(opt.hidden_size, opt.hidden_size, opt.max_length)(command_decoder_inputs)
+command_decoder_out_inputs = nn.SelectTable(1)(command_decoder_hidden)
 command_decoder_out = nn.Sequential()
     :add(nn.Linear(opt.hidden_size, n_argument_values + 1))
     :add(nn.LogSoftMax())
+command_decoder_out = command_decoder_out(command_decoder_out_inputs)
+command_decoder_outputs = {command_decoder_out, command_decoder_hidden}
 
--- Argument decoder
+command_decoder = nn.gModule(command_decoder_inputs, command_decoder_outputs)
+
+fake_encoded = {}
+for i = 1, opt.max_length do fake_encoded[i] = torch.zeros(opt.hidden_size) end
+command_decoder:forward({torch.LongTensor({1}), torch.zeros(opt.hidden_size), fake_encoded})
+
+-- Flattened parameters, clones per time step
 -- =============================================================================
--- Per argument, outputs a value from set of known possible argument values (e.g. device names)
---
--- Known:
--- * List of argument values ("office light", ...)
---
--- Inputs:
--- * Encoder hidden states
--- * Decoded command (first output of command decoder)
--- * Decoded argument (per 2nd + output of command decoder)
---
--- Outputs:
--- * Single argument value from list of known argument values
-
--- argument_decoder_in = AttentionGRU(opt.hidden_size, opt.hidden_size, opt.max_length)
-argument_decoder_in = nn.Sequential()
-    :add(nn.ParallelTable()
-        :add(nn.LookupTable(n_argument_values, opt.hidden_size))
-        :add(nn.View(1, -1))
-    )
-    :add(nn.JoinTable(2))
-argument_decoder_hidden = AttentionGRU(opt.hidden_size * 2, opt.hidden_size, opt.max_length)
-argument_decoder_out = nn.Sequential()
-    :add(nn.Linear(opt.hidden_size, n_argument_values))
-    :add(nn.LogSoftMax())
-
--- TODO
--- Separate freeform argument decoder
--- =============================================================================
--- Per argument, decodes whether each word corresponds to this value
--- Or could the other argument decoder output a COPY "command"?
---
--- Inputs:
--- * Encoder hidden states
--- * Decoded command
--- * Decoded argument (per argument)
--- * Input word (per step)
---
--- Outputs:
--- * Sequence of {true, false} over input words, to filter by and concatenate into a string
 
 command_decoder_criterion = nn.ClassNLLCriterion()
 argument_decoder_criterion = nn.ClassNLLCriterion()
 
 models = {
     encoder=encoder,
-    -- encoder_in=encoder_in,
-    -- encoder_hidden=encoder_hidden,
-
-    command_decoder_in=command_decoder_in,
-    command_decoder_hidden=command_decoder_hidden,
-    command_decoder_out=command_decoder_out,
-
-    argument_decoder_in=argument_decoder_in,
-    argument_decoder_hidden=argument_decoder_hidden,
-    argument_decoder_out=argument_decoder_out,
-
+    command_decoder=command_decoder,
     command_decoder_criterion=command_decoder_criterion,
-    argument_decoder_criterion=argument_decoder_criterion,
 }
 
 params, grad_params = model_utils.combine_all_parameters(
     models.encoder,
-    -- models.encoder_in,
-    -- models.encoder_hidden,
-    models.command_decoder_in,
-    models.command_decoder_hidden,
-    models.command_decoder_out,
-    models.argument_decoder_in,
-    models.argument_decoder_hidden,
-    models.argument_decoder_out
+    models.command_decoder
 )
 params:uniform(-0.1, 0.1)
 
