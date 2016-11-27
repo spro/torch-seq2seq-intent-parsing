@@ -2,7 +2,7 @@ require 'nn'
 require 'nngraph'
 require 'optim'
 require 'helpers'
-require 'data'
+-- require 'data'
 display = require 'display'
 require './scale-image'
 
@@ -19,6 +19,7 @@ sample_opt = cmd:parse(arg)
 glove = torch.load('glove.t7')
 opt = torch.load('opt.t7')
 models = torch.load('models.t7')
+data = torch.load('data.t7')
 
 function sample(input_string)
 
@@ -26,7 +27,7 @@ function sample(input_string)
     encoder_inputs = map(tokenize(input_string), function (word)
         return {
             glove[word] or torch.zeros(opt.glove_size),
-            torch.LongTensor({input_word_to_index[word] or UNK})
+            torch.LongTensor({data.input_word_to_index[word] or UNK})
         }
     end)
 
@@ -52,7 +53,7 @@ function sample(input_string)
     end
 
     -- Through command decoder
-    local command_decoder_inputs = {[1] = torch.LongTensor({command_EOS})}
+    local command_decoder_inputs = {[1] = torch.LongTensor({data.command_EOS})}
     local command_decoder_in_outputs = {}
     local command_decoder_hidden_outputs = {[0] = last_encoder_output}
     local command_decoder_out_outputs = {}
@@ -70,10 +71,10 @@ function sample(input_string)
 
         -- Choose most likely output
         out_max, out_max_index = command_decoder_out_outputs[t]:max(1)
-        if out_max_index[1] == command_EOS then
+        if out_max_index[1] == data.command_EOS then
             break
         end
-        local output_argument_name = argument_index_to_value[out_max_index[1]] or 'UNK'
+        local output_argument_name = data.argument_index_to_value[out_max_index[1]] or 'UNK'
         table.insert(sampled_tokens, output_argument_name)
         sampled = sampled .. output_argument_name
         if t < opt.max_length then sampled = sampled .. ' ' end
