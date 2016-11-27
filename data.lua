@@ -5,7 +5,7 @@ require 'helpers'
 USE_GLOVE = true
 glove = torch.load('glove.t7')
 
-require './bash-templates'
+require './iot-templates'
 
 function isArgument(arg)
     return arg:match('^%$')

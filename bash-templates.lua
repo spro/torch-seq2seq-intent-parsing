@@ -11,7 +11,6 @@ sentence_command_templates = {
     {"$commands.open $apps.app",   {"open", "$apps.app"}},
     {"$commands.read $files.file",   {"cat", "$files.file"}},
     {"$commands.size $files.directory",   {"du", "$files.directory"}},
-    {"turn $files.directory into a $words.archive called $files.archivename",   {"tar", "-czvf", "$files.archivename", "$files.directory"}},
     {"$commands.date", {"date"}},
     {"count $words.count of $files.file", {"wc", "$files.file"}},
 }
@@ -19,7 +18,6 @@ sentence_command_templates = {
 argument_values = {
     words = {
         count = {_ = {"lines", "words", "bytes"}},
-        archive = {_ = {"archive", "tarball", "zip"}},
     },
 
     commands = {
@@ -30,7 +28,6 @@ argument_values = {
         copy = {_ = {"copy"}},
         remove = {_ = {"remove", "delete"}},
         open = {_ = {"open", "start"}},
-        archive = {_ = {"archive", "compress", "make a tarball of", "create an archive of", "zip up"}},
         size = {_ = {"how big is", "how much size is"}},
     },
 
