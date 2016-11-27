@@ -190,6 +190,7 @@ print('makeSentence:', makeSentence())
 data = {
     input_word_to_index = input_word_to_index,
     argument_index_to_value = argument_index_to_value,
-    command_EOS = command_EOS
+    command_EOS = command_EOS,
+    UNK = UNK
 }
 torch.save('data.t7', data)

@@ -27,7 +27,7 @@ function sample(input_string)
     encoder_inputs = map(tokenize(input_string), function (word)
         return {
             glove[word] or torch.zeros(opt.glove_size),
-            torch.LongTensor({data.input_word_to_index[word] or UNK})
+            torch.LongTensor({data.input_word_to_index[word] or data.UNK})
         }
     end)
 
