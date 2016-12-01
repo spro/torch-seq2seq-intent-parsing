@@ -2,7 +2,7 @@
 
 Intent parsing framed as human to computer language translation.
 
-The model uses the seq2seq encoder-decoder model with two decoders: one to decode the intent and argument placeholders (`setState $light.name $light.state`), and one to align input words with slot values. Both are RNNs of GRU cells using an attention mechanism over the encoder outputs.
+The model uses the seq2seq encoder-decoder model with two decoders: one to decode the intent and slot placeholders (`setState $light.name $light.state`), and one to align input words with slot values (`$light.name = { 0 0 0 1 1 0 }`). Both are RNNs consisting of several GRU cells, and both use an attention mechanism over the encoder outputs.
 
 ![](https://i.imgur.com/V1ltvhI.png)
 
@@ -39,7 +39,7 @@ $light.name     =>      { 0 0 1 1 0 }
 
 First download these 1.42 GB of 27 billion Twitter GloVe vectors from [http://nlp.stanford.edu/data/wordvecs/glove.twitter.27B.zip](http://nlp.stanford.edu/data/wordvecs/glove.twitter.27B.zip) and extract them to `data/glove.twitter.27B.*.txt`
 
-Then run the `cache-glove` script to cache a subset of glove vectors (based on the sentence templates in templates.lua). This is to make it less painfully slow to start the training script (in case you want to quickly tweak a parameter and restart)
+Then run the `cache-glove` script to cache a subset of glove vectors (based on the sentence templates in templates.lua). This is to make it less painfully slow to start the training script (in case you want to quickly tweak a parameter and restart).
 
 ```bash
 $ th cache-glove.lua
@@ -60,5 +60,5 @@ Usage: [options]
 -n_epochs            Number of epochs to train [10000]
 ```
 
-With the small example training set you should get good results around 2500 epochs (about 5 minutes on a recent MacBook CPU)
+With the small example training set you should get good results around 2500 epochs (about 5 minutes on a recent MacBook CPU).
 
