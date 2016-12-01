@@ -1,8 +1,10 @@
 # intense
 
-"Intent parsing" reframed as a seq2seq translation problem from human to computer language.
+Intent parsing framed as human to computer language translation.
 
-The model uses the seq2seq encoder-decoder model with two decoders: one to decode the intent, and one to decode slots. Both use attention mechanisms over the encoder outputs.
+The model uses the seq2seq encoder-decoder model with two decoders: one to decode the intent and argument placeholders (`setState $light.name $light.state`), and one to align input words with slot values. Both are RNNs of GRU cells using an attention mechanism over the encoder outputs.
+
+![](https://i.imgur.com/V1ltvhI.png)
 
 Based on ideas from the following papers:
 
@@ -10,6 +12,8 @@ Based on ideas from the following papers:
 * [Neural Machine Translation by Jointly Learning to Align and Translate](https://arxiv.org/abs/1409.0473v7)
 * [Incorporating Copying Mechanism in Sequence-to-Sequence Learning](https://arxiv.org/abs/1603.06393) adds a "copy mode" in addition to the standard decoder (combined as a mixture) which uses an attention-like mechanism to decide which words to copy from the input
 * [Pointer Networks](https://arxiv.org/abs/1506.03134)
+
+Sampling example showing input, slot alignment, and output:
 
 ```
 [sample]        may you send Nenita Service a text
