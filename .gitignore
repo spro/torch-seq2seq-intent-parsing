@@ -1,3 +1,4 @@
 *.swp
 *.swo
 *.t7
+data/glove.twitter.*
