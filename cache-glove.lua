@@ -1,6 +1,13 @@
-opt = {glove_size=100}
+-- Parse command line arguments
+
+cmd = torch.CmdLine()
+cmd:text()
+cmd:option('-hidden_size', 200, 'Hidden size of LSTM layer')
+cmd:option('-glove_size', 100, 'Glove embedding size')
+opt = cmd:parse(arg)
+
 require 'data'
-glove = require '../torch/glove.torch/glove'
+glove = require './glove'
 
 known = {}
 
@@ -12,14 +19,6 @@ for i = 1, n_input_words do
     else
         known[word] = torch.zeros(opt.glove_size)
     end
-end
-
-common = {'up', 'down', 'hi', 'so', 'hmm'}
-
-for i = 1, #common do
-    word = common[i]
-    print('word', word)
-    known[word] = glove:word2vec(word):clone():double()
 end
 
 torch.save('glove.t7', known)

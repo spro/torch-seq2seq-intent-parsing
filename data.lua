@@ -1,196 +1,145 @@
-print(string.rep('-', 80))
-math.randomseed(os.clock())
 require 'helpers'
-
-USE_GLOVE = true
+require './templates'
 glove = torch.load('glove.t7')
 
-require './iot-templates'
+math.randomseed(os.time())
 
-function isArgument(arg)
-    return arg:match('^%$')
+max_length = 20
+NOISE_PROB = 0.3
+
+function replaceSynonyms(s)
+    return s:gsub(syn_re, function(word)
+        return randomChoice(synonyms[word:sub(2)])
+    end)
 end
-
-avi = 1
-argument_value_to_index = {}
-argument_index_to_value = {}
-
--- Flatten into a single list of indexes
-
-function maybeAddArgumentValue(argument_value)
-    if argument_value_to_index[argument_value] == nil then
-        argument_value_to_index[argument_value] = avi
-        argument_index_to_value[avi] = argument_value
-        avi = avi + 1
-    end
-end
-
-for mk, mv in pairs(argument_values) do
-    for tk, tv in pairs(mv) do
-        maybeAddArgumentValue('$' .. mk .. '.' .. tk)
-        for vk, vv in pairs(tv) do
-            maybeAddArgumentValue(vk)
-            print('at vk', vk)
-        end
-    end
-end
-
--- Add static words from command templates
-
-for _, sentence_command_template in pairs(sentence_command_templates) do
-    for _, command_word in pairs(sentence_command_template[2]) do
-        maybeAddArgumentValue(command_word)
-    end
-end
-
--- All words from input sentences
-
-iwi = 1
-input_word_to_index = {}
-input_index_to_word = {}
-
-function maybeAddInputWord(input_word)
-    if input_word_to_index[input_word] == nil then
-        input_word_to_index[input_word] = iwi
-        input_index_to_word[iwi] = input_word
-        iwi = iwi + 1
-    end
-end
-
-function maybeAddInputWords(input_words)
-    for _, input_word in pairs(tokenize(input_words)) do
-        maybeAddInputWord(input_word)
-    end
-end
-
-for _, sentence_command_template in pairs(sentence_command_templates) do
-    for _, input_word in pairs(tokenize(sentence_command_template[1]:gsub("%$%w+%.%w+", ""))) do
-        maybeAddInputWord(input_word)
-    end
-end
-
--- All words from noise pre and post
-
-ns = {noise_pre, noise_post}
-for _, n in pairs(ns) do
-    for _, nv in pairs(n) do
-        maybeAddInputWords(nv)
-    end
-end
-
--- All words from argument values
-
-for mk, mv in pairs(argument_values) do
-    for tk, tv in pairs(mv) do
-        for vk, vv in pairs(tv) do
-            for _, v in pairs(vv) do
-                maybeAddInputWords(v)
-            end
-        end
-    end
-end
-
-n_input_words = #keys(input_word_to_index)
-UNK = n_input_words + 1
--- n_argument_names = #keys(argument_name_to_index)
-n_argument_values = #keys(argument_value_to_index)
-command_EOS = n_argument_values + 1
-
-print('value to index', argument_value_to_index)
-print('value to index', argument_value_to_index)
 
 function makeSentence()
-    local sentence_command_template = randomChoice(sentence_command_templates)
-    local sentence_template, command_template = unpack(sentence_command_template)
+    local command = randomChoice(commands)
+    local input_template = command[1]
+    local output_template = command[2]
+    local input = input_template
+    local command_output = iteratorToTable(output_template:gmatch(word_re))
 
-    local method = command_template[1]
-
-    local sentence = sentence_template
-
-    -- Pull varible names out of sentence, 
-    local argument_pairs = {}
-    for argument_name in sentence:gfind('%$[%w.]+') do
-        table.insert(argument_pairs, {argument_name})
+    -- Find tokens in input template (assume tokens are always at least in input)
+    local tokens = {}
+    for token in input_template:gmatch(token_re) do
+        table.insert(tokens, token)
     end
 
-    -- Choose values to fill with
-    for _, argument_pair in pairs(argument_pairs) do
-        local argument_name = argument_pair[1]
-        local _, _, argument_type = argument_name:find('%$(%w+)') -- e.g. "light"
-        local _, _, argument_sub = argument_name:find('%$%w+.(%w+)') -- e.g. "device"
-        local argument_slug = randomKey(argument_values[argument_type][argument_sub])
-        local argument_value = randomChoice(argument_values[argument_type][argument_sub][argument_slug])
-
-        argument_pair[2] = argument_slug
-        argument_pair[3] = argument_value
+    -- Choose values for tokens
+    local token_values = {}
+    for _, full_token in pairs(tokens) do
+        token = full_token:sub(2)
+        -- print('token', token, full_token)
+        token_values[full_token] = randomChoice(freeform[argument_types[token] or token])
     end
 
-    -- Put them in the sentence
-    for _, argument_pair in pairs(argument_pairs) do
-        sentence = sentence:gsub(argument_pair[1], argument_pair[3])
+    -- Add noise words pre and post input
+    if math.random() < NOISE_PROB then
+        local noise = randomChoice(freeform.noise_pre)
+        input = noise .. ' ' .. input
+    end
+    if math.random() < NOISE_PROB then
+        local noise = randomChoice(freeform.noise_post)
+        input = input .. ' ' .. noise
     end
 
-    if math.random() < 0.2 then
-        sentence = randomChoice(noise_pre) .. ' ' .. sentence
-    elseif math.random() < 0.2 then
-        sentence = sentence .. ' ' .. randomChoice(noise_post)
-    end
-
-    -- Fill out sentence template for encoder inputs and decoder target
-    local encoder_inputs = map(tokenize(sentence), function(encoder_input)
-        return {
-            glove[encoder_input],
-            torch.LongTensor({input_word_to_index[encoder_input]})
-        }
-    end)
-
-    -- Turn tokens in command template into indexes
-    command_rendered = map(command_template, function(token)
-        -- print('token', token)
-        for _, argument_pair in pairs(argument_pairs) do
-            -- print('pair', argument_pair)
-            -- print('token', token)
-            token = token:gsub(argument_pair[1], argument_pair[2])
-            -- print('token now', token)
+    -- Replace matching tokens in input
+    -- Also replace any ~words with synonyms
+    -- Also make token masks (array of binary values of which words are relevant)
+    local token_masks = {}
+    seen_words = 1
+    input = input:gsub(word_re, function(word)
+        local token_word = token_values[word]
+        if token_word ~= nil then
+            token_masks[word] = torch.zeros(max_length)
+            token_word = replaceSynonyms(token_word)
+            l = countWords(token_word)
+            -- print('l', l)
+            token_masks[word][{{seen_words, seen_words + l - 1}}] = 1
+            seen_words = seen_words + l
+            return token_word
+        else
+            word = replaceSynonyms(word)
+            l = countWords(word)
+            seen_words = seen_words + l
+            return word
         end
-        return token
     end)
-    local command_indexes = map(command_rendered, function(argument_name)
-        -- print('argument name is', argument_name)
-        return argument_value_to_index[argument_name]
-    end)
-    -- print("indexes now", command_indexes)
 
-    -- Command decoder inputs are EOS + indexes
+    local encoder_inputs = map(iteratorToTable(input:gmatch(word_re)), function(word)
+        return glove[word] or torch.zeros(opt.glove_size)
+    end) 
+
+    local command_indexes = map(command_output, function(word)
+        return command_word_to_index[word]
+    end)
     local command_decoder_inputs = concat({command_EOS}, command_indexes)
-    command_decoder_inputs = asTensors(command_decoder_inputs)
-
-    -- Command decoder targets are indexes + EOS
     local command_decoder_targets = concat(command_indexes, {command_EOS})
+    command_decoder_inputs = map(command_decoder_inputs, function(input) return torch.LongTensor({input}) end)
+    command_decoder_targets = map(command_decoder_targets, function(input) return torch.LongTensor({input}) end)
 
-    -- Argument decoder inputs are each argument name from command as indexes
-    local fillable_arguments = filter(command_template, isArgument)
-    local argument_decoder_inputs = map(fillable_arguments, function(argument_name)
-        return argument_value_to_index[argument_name]
-    end)
-    argument_decoder_inputs = asTensors(argument_decoder_inputs)
-
-    -- Argument decoder targets are values per argument
-    local argument_decoder_targets = {}
-    for i, argument_pair in pairs(argument_pairs) do
-        argument_decoder_targets[i] = argument_value_to_index[argument_pair[2]]
-    end
-
-    -- return sentence, command_template
-    return sentence, encoder_inputs, command_decoder_inputs, command_decoder_targets, argument_decoder_inputs, argument_decoder_targets
+    return {input, encoder_inputs, command_decoder_inputs, command_decoder_targets, token_masks}
 end
 
-print('makeSentence:', makeSentence())
+-- Count known input words (for caching glove vectors)
 
-data = {
-    input_word_to_index = input_word_to_index,
-    argument_index_to_value = argument_index_to_value,
-    command_EOS = command_EOS,
-    UNK = UNK
-}
-torch.save('data.t7', data)
+input_word_to_index = {}
+input_index_to_word = {}
+n_input_words = 0
+
+function maybeAddInputWord(word)
+    if input_word_to_index[word] == nil then
+        n_input_words = n_input_words + 1
+        input_word_to_index[word] = n_input_words
+        input_index_to_word[n_input_words] = word
+    end
+end
+
+for _, word_sets in pairs(freeform) do
+    for _, words in pairs(word_sets) do
+        for word in words:gmatch(word_re) do
+            maybeAddInputWord(word)
+        end
+    end
+end
+
+for _, command in pairs(commands) do
+    for word in command[1]:gmatch(word_re) do
+        if word:match(token_re) == nil and word:match(syn_re) == nil then
+            maybeAddInputWord(word)
+        end
+    end
+end
+
+for _, wordss in pairs(synonyms) do
+    for _, words in pairs(wordss) do
+        for word in words:gmatch(word_re) do
+            maybeAddInputWord(word)
+        end
+    end
+end
+
+-- Count known command words (including argument placeholders)
+
+command_word_to_index = {}
+command_index_to_word = {}
+n_command_words = 0
+
+function maybeAddCommandWord(word)
+    if command_word_to_index[word] == nil then
+        n_command_words = n_command_words + 1
+        command_word_to_index[word] = n_command_words
+        command_index_to_word[n_command_words] = word
+    end
+end
+
+for _, command in pairs(commands) do
+    for word in command[2]:gmatch(word_re) do
+        maybeAddCommandWord(word)
+    end
+end
+
+command_EOS = n_command_words + 1
+
+-- print(makeSentence())

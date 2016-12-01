@@ -48,3 +48,5 @@ Usage: [options]
 -n_epochs            Number of epochs to train [10000]
 ```
 
+With the small example training set you should get good results around 2500 epochs (about 5 minutes on a recent MacBook CPU)
+

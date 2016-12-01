@@ -6,6 +6,8 @@ function map(list, fn)
     return mapped
 end
 
+function trim(s) return s:gsub('^%s+', ''):gsub('%s+$', '') end
+
 function mapObject(obj, fn)
     local mapped = {}
     for k, v in pairs(obj) do
@@ -61,15 +63,6 @@ function shuffleTable(t)
     end
 end
 
-function tokenize(s)
-    local tokens = {}
-    local s = s:lower():gsub("[@()/':;.,!\?-]", " %1 ")
-    for i in string.gmatch(s, '%S+') do
-        table.insert(tokens, i)
-    end
-    return tokens
-end
-
 function slugify(s)
     return s:lower():gsub("%W+", "_")
 end
@@ -91,17 +84,32 @@ function randomKey(l)
     return randomChoice(keys(l))
 end
 
-function asTensors(l)
-    return map(l, function (i) return torch.LongTensor({i}) end)
-end
-
-function slice(tbl, first, last, step)
-    local sliced = {}
-
-    for i = first or 1, last or #tbl, step or 1 do
-        sliced[#sliced+1] = tbl[i]
+function randomSample(l, n)
+    local ss = {}
+    for i = 1, n do
+        ss[i] = randomChoice(l)
     end
-
-    return sliced
+    return ss
 end
 
+function tensorToString(t)
+    local s = '{ '
+    for i = 1, t:size(1) do
+        s = s .. t[i]
+        s = s .. ' '
+    end
+    s = s .. '}'
+    return s
+end
+
+word_re = '[~%$%w_%.]+'
+token_re = '%$[%w_%.]+'
+syn_re = '~%w+'
+
+function tokenize(s)
+    return iteratorToTable(s:gmatch(word_re))
+end
+
+function countWords(s)
+    return #iteratorToTable(s:gmatch(word_re))
+end

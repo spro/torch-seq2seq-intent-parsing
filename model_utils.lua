@@ -1,6 +1,6 @@
 require 'torch'
 
-local model_utils = {}
+model_utils = {}
 
 function model_utils.combine_all_parameters(...)
     --[[ like module:getParameters, but operates on many modules ]]--
@@ -155,4 +155,3 @@ function model_utils.clone_many_times(net, T)
     return clones
 end
 
-return model_utils
