@@ -14,26 +14,34 @@ Based on ideas from the following papers:
 ```
 [sample]        may you send Nenita Service a text
 $person =>      { 0 0 0 1 1 0 0 }
-sampled  sendText ( $person = Nenita Service )
+(sampled)  sendText ( $person = Nenita Service )
 
 [sample]        what is the cost of pesos
 $market =>      { 0 0 0 0 0 1 }
-sampled  market getPrice ( $market = pesos )
+(sampled)  market getPrice ( $market = pesos )
 
 [sample]        could you send Deloise Kamps Readme.md please
 $person =>      { 0 0 0 1 1 0 0 }
 $file   =>      { 0 0 0 0 0 1 0 }
-sampled  sendFile ( $person = Deloise Kamps ) ( $file = Readme.md )
+(sampled)  sendFile ( $person = Deloise Kamps ) ( $file = Readme.md )
 
 [sample]        turn off my lights thanks
 $light.state    =>      { 0 1 0 0 0 }
 $light.name     =>      { 0 0 1 1 0 }
-sampled  lights setState ( $light.name = my lights ) ( $light.state = off )
+(sampled)  lights setState ( $light.name = my lights ) ( $light.state = off )
 ```
 
-## Usage
+## Preparation
 
-### Training
+First download these 1.42 GB of 27 billion Twitter GloVe vectors from [](http://nlp.stanford.edu/data/wordvecs/glove.twitter.27B.zip) and extract them to `data/glove.twitter.27B.*.txt`
+
+Then run the `cache-glove` script to cache a subset of glove vectors (based on the sentence templates in templates.lua). This is to make it less painfully slow to start the training script (in case you want to quickly tweak a parameter and restart)
+
+```bash
+$ th cache-glove.lua
+```
+
+## Training
 
 ```
 $ th train.lua
