@@ -1,4 +1,4 @@
-# intense
+# Torch Seq2Seq Intent Parsing
 
 Intent parsing framed as human to computer language translation.
 
